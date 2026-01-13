@@ -2,7 +2,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Client } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Proteção para evitar crash se process.env não estiver definido no ambiente do navegador
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    console.warn("API_KEY não encontrada em process.env");
+    return '';
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
   const response = await ai.models.generateContent({
