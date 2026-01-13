@@ -1,0 +1,7 @@
+{
+  "name": "RotaVendas Pro",
+  "description": "Sistema inteligente de otimização de rotas para vendedores com extração de PDF via IA e mapeamento dinâmico.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
