@@ -17,7 +17,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             },
           },
           {
-            text: "Extraia a lista completa de clientes deste documento PDF. É fundamental identificar a cidade de cada cliente. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, phone e info. Se a cidade não estiver explícita em cada linha, tente deduzi-la pelo cabeçalho ou contexto do documento. Certifique-se de que o campo 'city' não fique vazio.",
+            text: "Extraia a lista completa de clientes deste documento PDF. Todos os endereços são do estado do Rio Grande do Norte (RN). É fundamental identificar a cidade e o bairro de cada cliente. Além disso, forneça as coordenadas geográficas aproximadas (latitude e longitude) para cada endereço para que possamos plotar no mapa. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, phone, info, lat (number) e lng (number).",
           },
         ],
       },
@@ -35,8 +35,10 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             city: { type: Type.STRING },
             phone: { type: Type.STRING },
             info: { type: Type.STRING },
+            lat: { type: Type.NUMBER },
+            lng: { type: Type.NUMBER },
           },
-          required: ["name", "address", "city"],
+          required: ["name", "address", "city", "lat", "lng"],
         },
       },
     },
@@ -55,11 +57,11 @@ export const optimizeRoute = async (
   clients: Client[]
 ): Promise<string[]> => {
   const prompt = `
-    Como um especialista em logística, organize a melhor rota de visita para estes clientes, visando economia de combustível e menor tempo.
+    Como um especialista em logística, organize a melhor rota de visita para estes clientes no Rio Grande do Norte, visando economia de combustível e menor tempo.
     Ponto de Partida: ${startAddress}
     Ponto de Chegada: ${endAddress}
     Clientes a visitar (Endereços):
-    ${clients.map((c, i) => `${i + 1}. ${c.name} - ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
+    ${clients.map((c, i) => `${i + 1}. ${c.name} - ${c.address}, ${c.neighborhood}, ${c.city} (Coordenadas: ${c.lat}, ${c.lng})`).join('\n')}
 
     Retorne APENAS um array JSON contendo os IDs dos clientes na ordem de visita sugerida.
     Os IDs fornecidos são: ${clients.map(c => c.id).join(', ')}

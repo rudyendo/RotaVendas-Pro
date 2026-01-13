@@ -127,7 +127,7 @@ const App: React.FC = () => {
             <Navigation className="text-white w-6 h-6" />
           </div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            RotaVendas Pro
+            RotaVendas Pro <span className="text-[10px] font-normal text-slate-400 align-top uppercase tracking-widest">RN</span>
           </h1>
         </div>
         <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
@@ -170,8 +170,8 @@ const App: React.FC = () => {
         {step === AppStep.UPLOAD && (
           <div className="max-w-4xl mx-auto py-10">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-extrabold text-slate-900 mb-4">Bem-vindo ao Futuro das Vendas</h2>
-              <p className="text-slate-600 text-lg">Faça upload da sua lista de clientes em PDF para começar.</p>
+              <h2 className="text-3xl font-extrabold text-slate-900 mb-4">Logística Inteligente no RN</h2>
+              <p className="text-slate-600 text-lg">Faça upload da sua lista de clientes para geolocalização automática em Rio Grande do Norte.</p>
             </div>
             
             <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -180,7 +180,7 @@ const App: React.FC = () => {
                   <FileUp className="w-10 h-10 text-blue-600" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Upload de PDF</h3>
-                <p className="text-slate-500 mb-8 leading-relaxed">Arraste seu arquivo ou clique para selecionar. Nossa IA irá extrair endereços, cidades, contatos e bairros automaticamente.</p>
+                <p className="text-slate-500 mb-8 leading-relaxed">Arraste seu arquivo ou clique para selecionar. Nossa IA irá extrair endereços e coordenadas geográficas automaticamente.</p>
                 <label className="w-full">
                   <span className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200">
                     {loading ? 'Processando...' : <><PlusCircle className="w-5 h-5" /> Selecionar Arquivo</>}
@@ -193,22 +193,22 @@ const App: React.FC = () => {
                 <div className="flex gap-4 p-5 bg-white rounded-2xl shadow-sm border border-slate-100">
                   <div className="bg-green-100 p-3 rounded-xl h-fit"><CheckCircle2 className="text-green-600 w-6 h-6" /></div>
                   <div>
-                    <h4 className="font-bold text-slate-800">Extração de Dados Inteligente</h4>
-                    <p className="text-sm text-slate-500 mt-1">Nossa IA lê PDFs complexos e estrutura as informações para você.</p>
+                    <h4 className="font-bold text-slate-800">Geocodificação via IA</h4>
+                    <p className="text-sm text-slate-500 mt-1">Extraímos latitude e longitude aproximadas diretamente dos endereços do seu PDF.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 p-5 bg-white rounded-2xl shadow-sm border border-slate-100">
                   <div className="bg-indigo-100 p-3 rounded-xl h-fit"><MapIcon className="text-indigo-600 w-6 h-6" /></div>
                   <div>
-                    <h4 className="font-bold text-slate-800">Mapeamento Geográfico</h4>
-                    <p className="text-sm text-slate-500 mt-1">Visualize todos os seus clientes em um mapa interativo por bairro.</p>
+                    <h4 className="font-bold text-slate-800">Mapeamento Estadual</h4>
+                    <p className="text-sm text-slate-500 mt-1">Visualize seus clientes em todo o RN, organizados por cidades e bairros.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 p-5 bg-white rounded-2xl shadow-sm border border-slate-100">
                   <div className="bg-orange-100 p-3 rounded-xl h-fit"><Navigation className="text-orange-600 w-6 h-6" /></div>
                   <div>
-                    <h4 className="font-bold text-slate-800">Otimização de Rota</h4>
-                    <p className="text-sm text-slate-500 mt-1">Economize combustível com rotas calculadas para máxima eficiência.</p>
+                    <h4 className="font-bold text-slate-800">Rotas Otimizadas</h4>
+                    <p className="text-sm text-slate-500 mt-1">Algoritmos inteligentes para reduzir sua quilometragem diária.</p>
                   </div>
                 </div>
               </div>
@@ -222,7 +222,7 @@ const App: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Base de Clientes</h2>
-                <p className="text-slate-500">Total de {clients.length} clientes importados.</p>
+                <p className="text-slate-500">Total de {clients.length} clientes geolocalizados no RN.</p>
               </div>
               <div className="flex gap-2">
                 <button 
@@ -249,7 +249,7 @@ const App: React.FC = () => {
                       <th className="px-6 py-4 font-semibold">Endereço</th>
                       <th className="px-6 py-4 font-semibold">Bairro</th>
                       <th className="px-6 py-4 font-semibold">Cidade</th>
-                      <th className="px-6 py-4 font-semibold">Contato</th>
+                      <th className="px-6 py-4 font-semibold">Coord.</th>
                       <th className="px-6 py-4 font-semibold">Ações</th>
                     </tr>
                   </thead>
@@ -271,7 +271,9 @@ const App: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">{client.city || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{client.phone || '-'}</td>
+                        <td className="px-6 py-4 text-[10px] font-mono text-slate-400">
+                          {client.lat?.toFixed(4)}, {client.lng?.toFixed(4)}
+                        </td>
                         <td className="px-6 py-4">
                           <button 
                             onClick={() => setClients(clients.filter(c => c.id !== client.id))}
@@ -348,7 +350,7 @@ const App: React.FC = () => {
                     <div className="relative">
                       <input 
                         type="text" 
-                        placeholder="Endereço ou Coordenadas"
+                        placeholder="Endereço no RN"
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm pr-10"
                         value={startAddress}
                         onChange={(e) => setStartAddress(e.target.value)}
@@ -368,7 +370,7 @@ const App: React.FC = () => {
                     <div className="relative">
                       <input 
                         type="text" 
-                        placeholder="Endereço ou Coordenadas"
+                        placeholder="Endereço no RN"
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm pr-10"
                         value={endAddress}
                         onChange={(e) => setEndAddress(e.target.value)}
@@ -413,7 +415,7 @@ const App: React.FC = () => {
                   <div className="bg-slate-50 p-6 rounded-full mb-4">
                     <MapIcon className="w-12 h-12" />
                   </div>
-                  <p className="max-w-xs font-medium">Selecione um bairro ao lado para visualizar os clientes no mapa.</p>
+                  <p className="max-w-xs font-medium">Selecione um bairro ao lado para visualizar os clientes no mapa do RN.</p>
                 </div>
               )}
             </div>
@@ -424,7 +426,7 @@ const App: React.FC = () => {
         {step === AppStep.ROUTE && (
           <div className="max-w-4xl mx-auto pb-12">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900">Rota Otimizada</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Rota Otimizada - RN</h2>
               <button 
                 onClick={() => setStep(AppStep.PLANNER)}
                 className="text-blue-600 font-medium hover:underline flex items-center gap-1"
@@ -470,9 +472,8 @@ const App: React.FC = () => {
                           rel="noreferrer"
                           className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline"
                         >
-                          <MapPin className="w-3 h-3" /> Ver no Maps
+                          <MapPin className="w-3 h-3" /> Abrir no Google Maps
                         </a>
-                        <span className="text-xs text-slate-400 border-l pl-4 border-slate-200">{stop.phone || 'Sem telefone'}</span>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-300 self-center" />
@@ -497,7 +498,7 @@ const App: React.FC = () => {
                 onClick={() => window.print()}
                 className="bg-white border-2 border-slate-200 px-8 py-4 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
               >
-                Imprimir Rota Diária
+                Imprimir Rota RN
               </button>
             </div>
           </div>
@@ -511,11 +512,11 @@ const App: React.FC = () => {
             <div className="w-20 h-20 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
             <Navigation className="absolute inset-0 m-auto w-8 h-8 text-blue-600 animate-pulse" />
           </div>
-          <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Processando Inteligência</h3>
+          <h3 className="text-2xl font-extrabold text-slate-900 mb-2">IA Localizando no RN</h3>
           <p className="text-slate-500 max-w-xs">
             {step === AppStep.UPLOAD 
-              ? "Estamos lendo seu PDF e extraindo todos os dados dos clientes, incluindo a cidade..." 
-              : "Estamos calculando a rota mais eficiente para você economizar tempo e combustível..."}
+              ? "Estamos extraindo dados e encontrando as coordenadas exatas no Rio Grande do Norte..." 
+              : "Estamos calculando a rota potiguar mais eficiente para você..."}
           </p>
         </div>
       )}
