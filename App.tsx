@@ -2,23 +2,21 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   PlusCircle, 
-  Map as MapIcon, 
   Users, 
   Navigation, 
   FileUp, 
   CheckCircle2, 
-  ChevronRight,
-  MapPin,
-  Trash2,
-  Package,
-  ArrowRight,
-  Settings,
-  LocateFixed,
-  AlertCircle,
-  X,
-  Loader2,
-  Check,
-  ExternalLink,
+  MapPin, 
+  Trash2, 
+  Package, 
+  ArrowRight, 
+  Settings, 
+  LocateFixed, 
+  AlertCircle, 
+  X, 
+  Loader2, 
+  Check, 
+  ExternalLink, 
   ShieldAlert
 } from 'lucide-react';
 import { Client, AppStep, RouteStop } from './types';
@@ -35,6 +33,7 @@ const App: React.FC = () => {
   const [startAddress, setStartAddress] = useState<string>('');
   const [endAddress, setEndAddress] = useState<string>('');
   const [optimizedRoute, setOptimizedRoute] = useState<RouteStop[]>([]);
+  const [currentTip, setCurrentTip] = useState(0);
 
   const loadingMessages = [
     "Lendo o conteúdo do seu PDF...",
@@ -51,8 +50,6 @@ const App: React.FC = () => {
     "Dica: Verifique se o PDF está legível para uma extração mais rápida.",
     "Dica: Você pode editar o endereço de partida a qualquer momento."
   ];
-
-  const [currentTip, setCurrentTip] = useState(0);
 
   useEffect(() => {
     let interval: number;
@@ -231,7 +228,7 @@ const App: React.FC = () => {
                   <div className="bg-white/50 p-4 rounded-2xl border border-amber-200/50 text-sm">
                     <p className="font-bold mb-2">Como resolver no Vercel:</p>
                     <ol className="list-decimal list-inside space-y-1 text-xs opacity-80">
-                      <li>Vá em Settings -> Environment Variables</li>
+                      <li>Acesse Settings &rarr; Environment Variables</li>
                       <li>Adicione <b>API_KEY</b> com sua chave do Google AI Studio</li>
                       <li>Faça o <b>Redeploy</b> do projeto</li>
                     </ol>
@@ -270,14 +267,14 @@ const App: React.FC = () => {
                   <div className="bg-green-100 p-3 rounded-2xl h-fit"><CheckCircle2 className="text-green-600 w-6 h-6" /></div>
                   <div>
                     <h4 className="font-bold text-slate-800">Geocodificação RN</h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">Suporte nativo para cidades como Natal, Mossoró, Caicó e Parnamirim.</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">Suporte nativo para Natal, Mossoró, Caicó e Parnamirim.</p>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex gap-4">
                   <div className="bg-orange-100 p-3 rounded-2xl h-fit"><Navigation className="text-orange-600 w-6 h-6" /></div>
                   <div>
                     <h4 className="font-bold text-slate-800">Rotas Sem Desvios</h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">Algoritmos que priorizam as vias principais e evitam trânsito intenso.</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">Algoritmos que priorizam as vias principais e evitam trânsito.</p>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl">
@@ -285,7 +282,7 @@ const App: React.FC = () => {
                    <p className="text-2xl font-black">Online & Pronto</p>
                    <div className="mt-4 flex items-center gap-2">
                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                     <span className="text-[10px] font-bold opacity-70">IA Gemini 1.5 Flash Ativa</span>
+                     <span className="text-[10px] font-bold opacity-70">IA Gemini Ativa</span>
                    </div>
                 </div>
               </div>
@@ -400,7 +397,7 @@ const App: React.FC = () => {
                     <Users className="w-6 h-6 text-blue-600" />
                     {selectedNeighborhood ? `Clientes em ${selectedNeighborhood}` : 'Selecione um bairro'}
                   </h3>
-                  <p className="text-xs font-medium text-slate-400 mt-1">Clique nos cards para selecionar quem você irá visitar hoje.</p>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Clique nos cards para selecionar as visitas.</p>
                 </div>
                 {selectedNeighborhood && (
                   <span className="text-[10px] font-black text-blue-600 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm uppercase tracking-widest">
@@ -441,11 +438,6 @@ const App: React.FC = () => {
                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
                                 {client.city}
                               </span>
-                              {client.phone && (
-                                <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 bg-blue-50 px-3 py-1 rounded-full">
-                                  {client.phone}
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -455,7 +447,7 @@ const App: React.FC = () => {
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-300">
                     <div className="bg-white p-10 rounded-[3rem] shadow-sm mb-6 border border-slate-100"><Users className="w-16 h-16 opacity-20" /></div>
-                    <p className="max-w-xs text-center font-bold text-slate-400 text-lg">Selecione um bairro no menu lateral para carregar a lista de visitas.</p>
+                    <p className="max-w-xs text-center font-bold text-slate-400 text-lg">Selecione um bairro no menu lateral para carregar a lista.</p>
                   </div>
                 )}
               </div>
@@ -478,7 +470,7 @@ const App: React.FC = () => {
               <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-8 rounded-[2rem] flex items-center gap-8 shadow-2xl shadow-blue-900/20">
                 <div className="bg-white/10 p-4 rounded-3xl backdrop-blur-md"><Navigation className="w-8 h-8" /></div>
                 <div>
-                  <p className="text-blue-200 text-[10px] font-black uppercase tracking-widest mb-1">Ponto de Partida</p>
+                  <p className="text-blue-200 text-[10px] font-black uppercase tracking-widest mb-1">Partida</p>
                   <p className="font-bold text-xl leading-tight">{startAddress}</p>
                 </div>
               </div>
@@ -493,7 +485,7 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-black text-xl text-slate-800 tracking-tight">{stop.name}</h4>
-                        <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">Visita #{idx+1}</span>
+                        <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">#{idx+1}</span>
                       </div>
                       <p className="text-sm font-medium text-slate-500 leading-relaxed mb-6">{stop.address}, {stop.neighborhood}, {stop.city}</p>
                       <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${stop.address}, ${stop.neighborhood}, ${stop.city}`)}`} target="_blank" rel="noreferrer" className="bg-slate-900 text-white text-[10px] font-black px-6 py-3 rounded-xl inline-flex items-center gap-2 hover:bg-black transition-colors shadow-lg shadow-black/10 uppercase tracking-widest">
@@ -515,9 +507,9 @@ const App: React.FC = () => {
             <div className="mt-12 bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100/50 flex flex-col md:flex-row items-center justify-between gap-6">
                <div className="text-center md:text-left">
                   <p className="text-blue-900 font-black text-xl mb-1">Tudo pronto!</p>
-                  <p className="text-blue-700/60 text-sm font-medium">Boa jornada e ótimas vendas em todo o Rio Grande do Norte.</p>
+                  <p className="text-blue-700/60 text-sm font-medium">Boa jornada e ótimas vendas.</p>
                </div>
-               <button onClick={() => window.print()} className="bg-white text-blue-600 font-black px-8 py-4 rounded-2xl shadow-sm border border-blue-200 hover:bg-blue-100 transition-colors uppercase tracking-widest text-xs">Imprimir Roteiro</button>
+               <button onClick={() => window.print()} className="bg-white text-blue-600 font-black px-8 py-4 rounded-2xl shadow-sm border border-blue-200 hover:bg-blue-100 transition-colors uppercase tracking-widest text-xs">Imprimir</button>
             </div>
           </div>
         )}
