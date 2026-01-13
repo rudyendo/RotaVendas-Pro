@@ -17,7 +17,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             },
           },
           {
-            text: "Extraia a lista de clientes deste documento PDF. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, phone e info. Tente identificar o bairro (neighborhood) para cada cliente. Se não encontrar, deixe em branco.",
+            text: "Extraia a lista completa de clientes deste documento PDF. É fundamental identificar a cidade de cada cliente. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, phone e info. Se a cidade não estiver explícita em cada linha, tente deduzi-la pelo cabeçalho ou contexto do documento. Certifique-se de que o campo 'city' não fique vazio.",
           },
         ],
       },
@@ -36,7 +36,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             phone: { type: Type.STRING },
             info: { type: Type.STRING },
           },
-          required: ["name", "address"],
+          required: ["name", "address", "city"],
         },
       },
     },
@@ -59,7 +59,7 @@ export const optimizeRoute = async (
     Ponto de Partida: ${startAddress}
     Ponto de Chegada: ${endAddress}
     Clientes a visitar (Endereços):
-    ${clients.map((c, i) => `${i + 1}. ${c.name} - ${c.address}, ${c.neighborhood}`).join('\n')}
+    ${clients.map((c, i) => `${i + 1}. ${c.name} - ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
 
     Retorne APENAS um array JSON contendo os IDs dos clientes na ordem de visita sugerida.
     Os IDs fornecidos são: ${clients.map(c => c.id).join(', ')}

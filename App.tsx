@@ -180,7 +180,7 @@ const App: React.FC = () => {
                   <FileUp className="w-10 h-10 text-blue-600" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Upload de PDF</h3>
-                <p className="text-slate-500 mb-8 leading-relaxed">Arraste seu arquivo ou clique para selecionar. Nossa IA irá extrair endereços, contatos e bairros automaticamente.</p>
+                <p className="text-slate-500 mb-8 leading-relaxed">Arraste seu arquivo ou clique para selecionar. Nossa IA irá extrair endereços, cidades, contatos e bairros automaticamente.</p>
                 <label className="w-full">
                   <span className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200">
                     {loading ? 'Processando...' : <><PlusCircle className="w-5 h-5" /> Selecionar Arquivo</>}
@@ -248,6 +248,7 @@ const App: React.FC = () => {
                       <th className="px-6 py-4 font-semibold">Nome</th>
                       <th className="px-6 py-4 font-semibold">Endereço</th>
                       <th className="px-6 py-4 font-semibold">Bairro</th>
+                      <th className="px-6 py-4 font-semibold">Cidade</th>
                       <th className="px-6 py-4 font-semibold">Contato</th>
                       <th className="px-6 py-4 font-semibold">Ações</th>
                     </tr>
@@ -269,6 +270,7 @@ const App: React.FC = () => {
                             {client.neighborhood || 'N/A'}
                           </span>
                         </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{client.city || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{client.phone || '-'}</td>
                         <td className="px-6 py-4">
                           <button 
@@ -282,7 +284,7 @@ const App: React.FC = () => {
                     ))}
                     {clients.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center">
+                        <td colSpan={6} className="px-6 py-20 text-center">
                           <div className="flex flex-col items-center opacity-40">
                             <Users className="w-16 h-16 mb-4" />
                             <p>Nenhum cliente cadastrado.</p>
@@ -460,10 +462,10 @@ const App: React.FC = () => {
                         <h4 className="font-bold text-slate-800">{stop.name}</h4>
                         <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Visita #{idx + 1}</span>
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">{stop.address}</p>
+                      <p className="text-sm text-slate-500 mt-1">{stop.address}, {stop.neighborhood}, {stop.city}</p>
                       <div className="flex gap-4 mt-3">
                         <a 
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`} 
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${stop.address}, ${stop.neighborhood}, ${stop.city}`)}`} 
                           target="_blank" 
                           rel="noreferrer"
                           className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline"
@@ -512,7 +514,7 @@ const App: React.FC = () => {
           <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Processando Inteligência</h3>
           <p className="text-slate-500 max-w-xs">
             {step === AppStep.UPLOAD 
-              ? "Estamos lendo seu PDF e extraindo todos os dados dos clientes..." 
+              ? "Estamos lendo seu PDF e extraindo todos os dados dos clientes, incluindo a cidade..." 
               : "Estamos calculando a rota mais eficiente para você economizar tempo e combustível..."}
           </p>
         </div>
