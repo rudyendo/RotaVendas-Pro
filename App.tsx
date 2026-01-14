@@ -5,36 +5,17 @@ import {
   Users, 
   Navigation, 
   FileUp, 
-  CheckCircle2, 
   MapPin, 
   Trash2, 
-  Package, 
-  ArrowRight, 
   Settings, 
-  LocateFixed, 
   AlertCircle, 
   X, 
   Loader2, 
   Check, 
-  ExternalLink, 
-  ShieldAlert,
-  Key,
   MessageCircle
 } from 'lucide-react';
 import { Client, AppStep, RouteStop } from './types';
 import { extractClientsFromPDF, optimizeRoute } from './services/geminiService';
-
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-  }
-
-  interface Window {
-    // Made aistudio optional to match potential ambient declarations and avoid modifier mismatch errors
-    aistudio?: AIStudio;
-  }
-}
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.DATABASE);
@@ -49,28 +30,6 @@ const App: React.FC = () => {
   const [optimizedRoute, setOptimizedRoute] = useState<RouteStop[]>([]);
   const [currentTip, setCurrentTip] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [hasApiKey, setHasApiKey] = useState<boolean>(!!process.env.API_KEY);
-
-  useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio) {
-        const selected = await window.aistudio.hasSelectedApiKey();
-        if (selected) setHasApiKey(true);
-      }
-    };
-    checkKey();
-  }, []);
-
-  const handleOpenKeySelector = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setHasApiKey(true);
-      setErrorMessage(null);
-    } else {
-      setErrorMessage("Interface de seleção de chave não encontrada. Certifique-se de que a variável API_KEY está configurada no seu ambiente de deploy.");
-    }
-  };
 
   const loadingMessages = [
     "Lendo o conteúdo do seu PDF...",
@@ -124,18 +83,13 @@ const App: React.FC = () => {
           const extracted = await extractClientsFromPDF(base64);
           
           if (extracted.length === 0) {
-            setErrorMessage("Não encontramos clientes válidos. Verifique o documento.");
+            setErrorMessage("Não encontramos clientes válidos no documento.");
           } else {
             setClients(prev => [...prev, ...extracted]);
             setStep(AppStep.DATABASE);
           }
         } catch (err: any) {
-          // Erro amigável para falta de chave
-          if (err.message.includes("API_KEY")) {
-            setErrorMessage("Erro de Configuração: A chave de API não foi detectada. Verifique se as variáveis de ambiente foram configuradas corretamente e se o deploy foi atualizado.");
-          } else {
-            setErrorMessage(err.message || "Falha ao processar dados.");
-          }
+          setErrorMessage(err.message || "Erro ao processar dados. Verifique sua chave de API nas configurações do Vercel.");
         } finally {
           setLoading(false);
           if (event.target) event.target.value = '';
@@ -215,31 +169,17 @@ const App: React.FC = () => {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          {!hasApiKey && !process.env.API_KEY && (
-             <button 
-              onClick={handleOpenKeySelector}
-              className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 transition-colors"
-             >
-               <Key className="w-3.5 h-3.5" /> Vincular Chave IA
-             </button>
-          )}
           <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><Settings className="w-5 h-5" /></button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {errorMessage && (
-          <div className="max-w-4xl mx-auto mb-8 p-6 bg-red-50 rounded-3xl border border-red-200 text-red-900 shadow-xl flex items-start gap-4 animate-in slide-in-from-top duration-300">
+          <div className="max-w-4xl mx-auto mb-8 p-6 bg-red-50 rounded-3xl border border-red-200 text-red-900 shadow-xl flex items-start gap-4">
             <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
             <div className="flex-1">
-              <h3 className="font-bold">Houve um problema</h3>
+              <h3 className="font-bold">Atenção</h3>
               <p className="text-sm opacity-90">{errorMessage}</p>
-              {errorMessage.includes("API_KEY") && (
-                <div className="mt-4 flex gap-3">
-                  <button onClick={handleOpenKeySelector} className="text-xs font-black bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all">Tentar Vincular Manualmente</button>
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-xs font-bold text-red-600 hover:underline">Ver Billing</a>
-                </div>
-              )}
             </div>
             <button onClick={() => setErrorMessage(null)} className="p-1 hover:bg-black/5 rounded-full"><X className="w-5 h-5" /></button>
           </div>
@@ -253,14 +193,7 @@ const App: React.FC = () => {
                 <p className="text-slate-500 font-medium">Você possui <span className="text-blue-600 font-bold">{clients.length}</span> clientes cadastrados.</p>
               </div>
               <div className="flex gap-3">
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept=".pdf" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload}
-                  disabled={loading}
-                />
+                <input type="file" className="hidden" accept=".pdf" ref={fileInputRef} onChange={handleFileUpload} disabled={loading} />
                 <button 
                   onClick={() => fileInputRef.current?.click()} 
                   className="px-6 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all active:scale-95"

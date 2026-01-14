@@ -2,16 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Client } from "../types";
 
-const getApiKey = () => {
-  const key = process.env.API_KEY;
-  if (!key || key === 'undefined' || key === '') {
-    throw new Error("A variável de ambiente API_KEY não foi encontrada. Certifique-se de configurar a chave no painel do Vercel e realizar um novo deploy.");
-  }
-  return key;
-};
-
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY não encontrada. Verifique as 'Environment Variables' no painel do Vercel.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
@@ -48,7 +45,6 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             lng: { type: Type.NUMBER },
           },
           required: ["name", "address", "city", "state", "country", "whatsapp", "lat", "lng"],
-          propertyOrdering: ["name", "address", "neighborhood", "city", "state", "country", "whatsapp", "phone", "info", "lat", "lng"],
         },
       },
     },
@@ -66,7 +62,12 @@ export const optimizeRoute = async (
   endAddress: string,
   clients: Client[]
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY não encontrada.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `
     Como um especialista em logística, organize a melhor rota de visitas:
