@@ -24,9 +24,6 @@ import {
 import { Client, AppStep, RouteStop } from './types';
 import { extractClientsFromPDF, optimizeRoute } from './services/geminiService';
 
-// Fix: Moved AIStudio interface into declare global and removed readonly modifier 
-// to prevent "identical modifiers" and "subsequent property declaration" errors 
-// when augmenting the global Window interface.
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
@@ -34,7 +31,8 @@ declare global {
   }
 
   interface Window {
-    aistudio: AIStudio;
+    // Made aistudio optional to match potential ambient declarations and avoid modifier mismatch errors
+    aistudio?: AIStudio;
   }
 }
 
@@ -67,10 +65,10 @@ const App: React.FC = () => {
   const handleOpenKeySelector = async () => {
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
-      // Assume the key selection was successful to mitigate race conditions.
       setHasApiKey(true);
+      setErrorMessage(null);
     } else {
-      setErrorMessage("Interface de seleção de chave não encontrada. Certifique-se de configurar API_KEY no Vercel.");
+      setErrorMessage("Interface de seleção de chave não encontrada. Certifique-se de que a variável API_KEY está configurada no seu ambiente de deploy.");
     }
   };
 
@@ -132,7 +130,12 @@ const App: React.FC = () => {
             setStep(AppStep.DATABASE);
           }
         } catch (err: any) {
-          setErrorMessage(err.message || "Falha ao processar dados.");
+          // Erro amigável para falta de chave
+          if (err.message.includes("API_KEY")) {
+            setErrorMessage("Erro de Configuração: A chave de API não foi detectada. Verifique se as variáveis de ambiente foram configuradas corretamente e se o deploy foi atualizado.");
+          } else {
+            setErrorMessage(err.message || "Falha ao processar dados.");
+          }
         } finally {
           setLoading(false);
           if (event.target) event.target.value = '';
@@ -185,38 +188,6 @@ const App: React.FC = () => {
     }
   };
 
-  if (!hasApiKey && !process.env.API_KEY) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-10 text-center border border-slate-100">
-          <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
-            <Key className="w-10 h-10 text-amber-600" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-4">Configuração Necessária</h2>
-          <p className="text-slate-500 mb-8 leading-relaxed">
-            Para que a Inteligência Artificial processe seus arquivos, você precisa conectar sua chave do Google AI Studio.
-          </p>
-          <div className="space-y-4">
-            <button 
-              onClick={handleOpenKeySelector}
-              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-            >
-              Conectar ao Google AI Studio
-            </button>
-            <a 
-              href="https://ai.google.dev/gemini-api/docs/billing" 
-              target="_blank" 
-              rel="noreferrer"
-              className="block text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
-            >
-              Ver Documentação de Faturamento
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden font-sans bg-slate-50">
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -243,16 +214,32 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><Settings className="w-5 h-5" /></button>
+        <div className="flex items-center gap-2">
+          {!hasApiKey && !process.env.API_KEY && (
+             <button 
+              onClick={handleOpenKeySelector}
+              className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 transition-colors"
+             >
+               <Key className="w-3.5 h-3.5" /> Vincular Chave IA
+             </button>
+          )}
+          <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><Settings className="w-5 h-5" /></button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {errorMessage && (
-          <div className="max-w-4xl mx-auto mb-8 p-6 bg-red-50 rounded-3xl border border-red-200 text-red-900 shadow-xl flex items-start gap-4">
+          <div className="max-w-4xl mx-auto mb-8 p-6 bg-red-50 rounded-3xl border border-red-200 text-red-900 shadow-xl flex items-start gap-4 animate-in slide-in-from-top duration-300">
             <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
             <div className="flex-1">
               <h3 className="font-bold">Houve um problema</h3>
               <p className="text-sm opacity-90">{errorMessage}</p>
+              {errorMessage.includes("API_KEY") && (
+                <div className="mt-4 flex gap-3">
+                  <button onClick={handleOpenKeySelector} className="text-xs font-black bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all">Tentar Vincular Manualmente</button>
+                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-xs font-bold text-red-600 hover:underline">Ver Billing</a>
+                </div>
+              )}
             </div>
             <button onClick={() => setErrorMessage(null)} className="p-1 hover:bg-black/5 rounded-full"><X className="w-5 h-5" /></button>
           </div>
