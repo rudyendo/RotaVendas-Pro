@@ -5,6 +5,9 @@ export interface Client {
   address: string;
   neighborhood: string;
   city: string;
+  state: string;
+  country: string;
+  whatsapp: string;
   phone?: string;
   info?: string;
   lat?: number;
@@ -22,7 +25,6 @@ export interface OptimizationResult {
 }
 
 export enum AppStep {
-  UPLOAD = 'UPLOAD',
   DATABASE = 'DATABASE',
   PLANNER = 'PLANNER',
   ROUTE = 'ROUTE'
