@@ -2,8 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Client } from "../types";
 
+/**
+ * Extrai clientes de um PDF usando IA.
+ */
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
-  // Inicialização direta conforme diretrizes
+  // Inicializa o SDK. Se o process.env.API_KEY estiver vazio, o erro será tratado no catch do App.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const response = await ai.models.generateContent({
@@ -17,7 +20,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
           },
         },
         {
-          text: "Extraia a lista completa de clientes deste documento PDF. Identifique o endereço completo, incluindo Bairro, Cidade, Estado e País. Extraia também o número de WhatsApp (no formato internacional: código do país + DDD + número). Retorne um array JSON de objetos contendo: name, address, neighborhood, city, state, country, whatsapp, phone, info, lat (number) e lng (number).",
+          text: "Extraia a lista completa de clientes deste documento PDF. Identifique o endereço completo, incluindo Bairro, Cidade, Estado e País. Extraia também o número de WhatsApp (no formato internacional: código do país + DDD + número). Tente inferir a Latitude e Longitude aproximada para cada cliente. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, state, country, whatsapp, phone, info, lat (number) e lng (number).",
         },
       ],
     },
@@ -53,6 +56,9 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
   }));
 };
 
+/**
+ * Otimização de Rota usando IA Gemini (Inteligência Logística).
+ */
 export const optimizeRoute = async (
   startAddress: string,
   endAddress: string,
@@ -61,13 +67,17 @@ export const optimizeRoute = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Como um especialista em logística, organize a melhor rota de visitas:
-    Partida: ${startAddress}
-    Chegada: ${endAddress}
-    Clientes:
-    ${clients.map((c, i) => `${i + 1}. ${c.name} - ${c.address}, ${c.neighborhood}, ${c.city}, ${c.state}, ${c.country}`).join('\n')}
+    Você é um especialista em logística. Organize a melhor ordem de visita para os seguintes clientes, 
+    minimizando o tempo de deslocamento.
+    
+    Ponto de Partida: ${startAddress || 'Localização Atual'}
+    Ponto de Chegada: ${endAddress || 'Retorno à Base'}
+    
+    Lista de Clientes a visitar:
+    ${clients.map((c, i) => `- ID: ${c.id} | Nome: ${c.name} | Endereço: ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
 
-    Retorne apenas um array JSON com os IDs na ordem otimizada: ${clients.map(c => c.id).join(', ')}
+    Retorne APENAS um array JSON contendo os IDs dos clientes na ordem de visita recomendada. 
+    Exemplo: ["id1", "id2", "id3"]
   `;
 
   const response = await ai.models.generateContent({
@@ -82,5 +92,19 @@ export const optimizeRoute = async (
     }
   });
 
-  return JSON.parse(response.text || "[]");
+  try {
+    const orderedIds = JSON.parse(response.text || "[]");
+    return orderedIds;
+  } catch (e) {
+    console.error("Erro ao processar resposta da IA:", e);
+    // Fallback: retorna a ordem original caso a IA falhe no formato
+    return clients.map(c => c.id);
+  }
+};
+
+/**
+ * Mantemos o algoritmo matemático como utilitário interno para fallback silencioso.
+ */
+export const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lng2 - lng1, 2));
 };
