@@ -3,12 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Client } from "../types";
 
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY não encontrada. Verifique as 'Environment Variables' no painel do Vercel.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Inicialização direta conforme diretrizes
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
@@ -62,12 +58,7 @@ export const optimizeRoute = async (
   endAddress: string,
   clients: Client[]
 ): Promise<string[]> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY não encontrada.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
     Como um especialista em logística, organize a melhor rota de visitas:
