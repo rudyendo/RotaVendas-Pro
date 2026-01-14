@@ -46,32 +46,49 @@ const App: React.FC = () => {
   const [currentTip, setCurrentTip] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Estado para verificar se a chave está funcional
-  const [isApiKeyReady, setIsApiKeyReady] = useState<boolean>(!!process.env.API_KEY);
+  // Verifica se temos uma chave (pelo ambiente ou pelo seletor)
+  const [isApiKeyReady, setIsApiKeyReady] = useState<boolean>(false);
 
+  // Checagem inicial de chave
   useEffect(() => {
-    const checkKeyStatus = async () => {
+    const checkKey = async () => {
+      // Se a chave do Vercel (process.env) estiver presente, libera o app
+      if (process.env.API_KEY) {
+        setIsApiKeyReady(true);
+        return;
+      }
+
+      // Se houver o objeto aistudio, checa se já foi selecionada
       if (window.aistudio) {
         const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (hasKey || process.env.API_KEY) {
+        if (hasKey) {
           setIsApiKeyReady(true);
         }
       }
     };
-    checkKeyStatus();
+    checkKey();
   }, []);
 
   const handleConnectKey = async () => {
-    if (window.aistudio) {
-      try {
+    try {
+      if (window.aistudio) {
+        // Abre o diálogo do Google
         await window.aistudio.openSelectKey();
+        // Regra de Ouro: Assumir sucesso imediatamente para evitar race conditions
         setIsApiKeyReady(true);
         setErrorMessage(null);
-        // Após selecionar a chave, recarrega a página ou tenta novamente
-        window.location.reload(); 
-      } catch (err) {
-        setErrorMessage("Não foi possível conectar a chave. Verifique se o Google AI Studio está acessível.");
+      } else {
+        // Caso o objeto não esteja disponível (raro em deploy), tentamos forçar o estado 
+        // se soubermos que a chave de ambiente deveria estar lá
+        if (process.env.API_KEY) {
+          setIsApiKeyReady(true);
+        } else {
+          setErrorMessage("Interface de conexão não detectada. Verifique se o Google AI Studio está configurado.");
+        }
       }
+    } catch (err) {
+      console.error("Erro ao conectar chave:", err);
+      setErrorMessage("Erro ao abrir seletor de chaves.");
     }
   };
 
@@ -107,17 +124,17 @@ const App: React.FC = () => {
           const base64 = (e.target?.result as string).split(',')[1];
           const extracted = await extractClientsFromPDF(base64);
           if (extracted.length === 0) {
-            setErrorMessage("Nenhum cliente detectado no PDF. Verifique se o arquivo está legível.");
+            setErrorMessage("Nenhum cliente detectado no PDF.");
           } else {
             setClients(prev => [...prev, ...extracted]);
             setStep(AppStep.DATABASE);
           }
         } catch (err: any) {
-          if (err.message.includes("API key")) {
+          if (err.message.includes("entity was not found") || err.message.includes("404")) {
             setIsApiKeyReady(false);
-            setErrorMessage("Chave de API inválida ou não encontrada. Por favor, conecte novamente.");
+            setErrorMessage("Sua chave expirou ou não foi encontrada. Conecte novamente.");
           } else {
-            setErrorMessage("Erro ao processar PDF: " + err.message);
+            setErrorMessage("Erro IA: " + err.message);
           }
         } finally {
           setLoading(false);
@@ -127,7 +144,7 @@ const App: React.FC = () => {
       reader.readAsDataURL(file);
     } catch (err) {
       setLoading(false);
-      setErrorMessage("Erro crítico ao carregar arquivo.");
+      setErrorMessage("Erro ao ler arquivo.");
     }
   };
 
@@ -152,10 +169,8 @@ const App: React.FC = () => {
     setSelectedClientIds(prev => Array.from(new Set([...prev, ...ids])));
   };
 
-  // CALCULAR ROTA USANDO IA GEMINI
   const calculateRouteWithAI = async () => {
     if (selectedClientIds.length === 0) return;
-    
     setLoading(true);
     setErrorMessage(null);
     setStatusMessage("IA Gemini Pro calculando rota logística...");
@@ -166,16 +181,13 @@ const App: React.FC = () => {
       
       const orderedList: RouteStop[] = orderedIds.map((id, index) => {
         const client = clients.find(c => c.id === id);
-        if (!client) return null;
-        return { ...client, stopOrder: index + 1 };
+        return client ? { ...client, stopOrder: index + 1 } : null;
       }).filter(Boolean) as RouteStop[];
-
-      if (orderedList.length === 0) throw new Error("A IA retornou uma lista vazia.");
 
       setOptimizedRoute(orderedList);
       setStep(AppStep.ROUTE);
     } catch (err: any) {
-      setErrorMessage("Erro na otimização da IA: " + (err.message || "Tente novamente em instantes."));
+      setErrorMessage("Erro na otimização: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -203,11 +215,13 @@ const App: React.FC = () => {
 
         <div className="flex items-center gap-3">
           {!isApiKeyReady ? (
-            <button onClick={handleConnectKey} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-black animate-pulse shadow-lg shadow-amber-200"><Key className="w-3.5 h-3.5" /> Vincular IA Google</button>
+            <button onClick={handleConnectKey} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-black animate-pulse shadow-lg shadow-amber-200">
+              <Key className="w-3.5 h-3.5" /> Vincular IA Google
+            </button>
           ) : (
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-full border border-green-100">
               <Sparkles className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-black uppercase">IA Ativa</span>
+              <span className="text-[10px] font-black uppercase">IA Pronta</span>
             </div>
           )}
           <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><Settings className="w-5 h-5" /></button>
@@ -216,17 +230,39 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {!isApiKeyReady ? (
-          <div className="max-w-md mx-auto mt-20 text-center space-y-8 bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100">
+          <div className="max-w-md mx-auto mt-20 text-center space-y-8 bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-300">
             <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto"><ShieldAlert className="w-12 h-12 text-blue-500" /></div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">Conecte sua Chave</h2>
-              <p className="text-slate-500 leading-relaxed">A IA Gemini Pro precisa de uma chave (mesmo gratuita) para processar seus arquivos PDF no Vercel.</p>
+              <p className="text-slate-500 leading-relaxed text-sm">A IA Gemini Pro precisa de uma chave (mesmo gratuita) para processar seus arquivos PDF com segurança.</p>
             </div>
-            <button onClick={handleConnectKey} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3">Vincular Agora <ChevronRight className="w-5 h-5" /></button>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Acesse o Google AI Studio para gerar sua chave gratuita.</p>
+            
+            <div className="space-y-4">
+              <button 
+                onClick={handleConnectKey} 
+                className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-3"
+              >
+                Vincular Agora <ChevronRight className="w-5 h-5" />
+              </button>
+              
+              <a 
+                href="https://ai.google.dev/gemini-api/docs/billing" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-blue-500 transition-colors"
+              >
+                Como obter uma chave gratuita?
+              </a>
+            </div>
+
+            {errorMessage && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100">
+                {errorMessage}
+              </div>
+            )}
           </div>
         ) : (
-          <>
+          <div className="animate-in fade-in duration-500">
             {errorMessage && (
               <div className="max-w-4xl mx-auto mb-8 p-6 bg-red-50 rounded-3xl border border-red-200 text-red-900 flex items-start gap-4 shadow-sm">
                 <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
@@ -243,7 +279,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
                   <div>
                     <h2 className="text-3xl font-black text-slate-900 tracking-tight">Base de Clientes</h2>
-                    <p className="text-slate-500 font-medium">Você possui <span className="text-blue-600 font-bold">{clients.length}</span> cadastros ativos.</p>
+                    <p className="text-slate-500 font-medium">Você possui <span className="text-blue-600 font-bold">{clients.length}</span> cadastros.</p>
                   </div>
                   <div className="flex gap-3 w-full sm:w-auto">
                     <input type="file" className="hidden" accept=".pdf" ref={fileInputRef} onChange={handleFileUpload} disabled={loading} />
@@ -254,9 +290,7 @@ const App: React.FC = () => {
 
                 {clients.length === 0 && !loading ? (
                   <div className="bg-white rounded-[2.5rem] border border-slate-200 p-20 text-center shadow-xl">
-                    <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Users className="w-10 h-10 text-blue-400" />
-                    </div>
+                    <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6"><Users className="w-10 h-10 text-blue-400" /></div>
                     <h3 className="text-xl font-bold text-slate-800 mb-2">Sua base está vazia</h3>
                     <p className="text-slate-500 max-w-sm mx-auto">Importe o relatório de clientes em PDF para que a IA possa organizar seus dados.</p>
                     <button onClick={() => fileInputRef.current?.click()} className="mt-8 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700">Começar Agora</button>
@@ -288,60 +322,40 @@ const App: React.FC = () => {
               <div className="h-full flex flex-col md:flex-row gap-8 max-w-7xl mx-auto">
                 <div className="w-full md:w-96 flex flex-col gap-6 shrink-0">
                   <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl space-y-6">
-                    <h3 className="font-black text-slate-900 text-xl flex items-center gap-2">
-                      <MapIcon className="w-5 h-5 text-blue-600" /> Filtrar Região
-                    </h3>
-                    <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-blue-500 transition-all" value={selectedNeighborhood} onChange={(e) => setSelectedNeighborhood(e.target.value)}>
-                      <option value="">Selecione o Bairro...</option>
+                    <h3 className="font-black text-slate-900 text-xl flex items-center gap-2"><MapIcon className="w-5 h-5 text-blue-600" /> Filtrar Região</h3>
+                    <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" value={selectedNeighborhood} onChange={(e) => setSelectedNeighborhood(e.target.value)}>
+                      <option value="">Todos os Bairros...</option>
                       {neighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                     {selectedNeighborhood && <button onClick={selectAllInNeighborhood} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Selecionar Todo Bairro</button>}
                   </div>
                   <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl space-y-4">
                     <div className="space-y-3">
-                      <input type="text" placeholder="Endereço de Partida (opcional)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-blue-500" value={startAddress} onChange={(e) => setStartAddress(e.target.value)} />
-                      <input type="text" placeholder="Endereço de Retorno (opcional)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-blue-500" value={endAddress} onChange={(e) => setEndAddress(e.target.value)} />
+                      <input type="text" placeholder="Partida (opcional)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm" value={startAddress} onChange={(e) => setStartAddress(e.target.value)} />
+                      <input type="text" placeholder="Retorno (opcional)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm" value={endAddress} onChange={(e) => setEndAddress(e.target.value)} />
                     </div>
-                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3">
-                      <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
-                      <p className="text-[11px] text-blue-700 font-bold leading-tight">Otimização Logística com IA Gemini Pro: Ordem de visitas baseada em roteirização inteligente.</p>
-                    </div>
-                    <button disabled={selectedClientIds.length === 0 || loading} onClick={calculateRouteWithAI} className="w-full bg-blue-600 text-white font-black py-5 rounded-[1.5rem] hover:bg-blue-700 disabled:opacity-30 shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <button disabled={selectedClientIds.length === 0 || loading} onClick={calculateRouteWithAI} className="w-full bg-blue-600 text-white font-black py-5 rounded-[1.5rem] hover:bg-blue-700 disabled:opacity-30 shadow-xl shadow-blue-200 flex items-center justify-center gap-2 transition-all">
                       {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-4 h-4" /> Gerar Rota Inteligente</>}
                     </button>
                   </div>
                 </div>
                 <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[500px]">
                   <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h3 className="font-black text-slate-900 text-xl">Visitas Selecionadas ({selectedClientIds.length})</h3>
-                    {selectedClientIds.length > 0 && (
-                      <button onClick={() => setSelectedClientIds([])} className="text-[10px] font-black text-red-500 uppercase tracking-widest">Limpar Tudo</button>
-                    )}
+                    <h3 className="font-black text-slate-900 text-xl">Clientes Selecionados ({selectedClientIds.length})</h3>
+                    {selectedClientIds.length > 0 && <button onClick={() => setSelectedClientIds([])} className="text-[10px] font-black text-red-500 uppercase">Limpar</button>}
                   </div>
                   <div className="flex-1 overflow-y-auto p-8">
-                    {selectedNeighborhood ? (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {filteredClients.map((client) => {
-                          const isSelected = selectedClientIds.includes(client.id);
-                          return (
-                            <div key={client.id} onClick={() => toggleClientSelection(client.id)} className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex gap-4 ${isSelected ? 'border-blue-600 bg-white shadow-xl scale-[1.02]' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}>
-                              <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-200'}`}>
-                                {isSelected && <Check className="w-4 h-4 text-white" />}
-                              </div>
-                              <div className="overflow-hidden">
-                                <h4 className="font-black text-slate-800 truncate">{client.name}</h4>
-                                <p className="text-xs text-slate-500 truncate">{client.address}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4">
-                        <MapIcon className="w-12 h-12 opacity-20" />
-                        <p className="font-bold text-center">Selecione um bairro no painel lateral para listar os clientes disponíveis.</p>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {(selectedNeighborhood ? filteredClients : clients).map((client) => {
+                        const isSelected = selectedClientIds.includes(client.id);
+                        return (
+                          <div key={client.id} onClick={() => toggleClientSelection(client.id)} className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex gap-4 ${isSelected ? 'border-blue-600 bg-white shadow-xl scale-[1.02]' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}>
+                            <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-200'}`}>{isSelected && <Check className="w-4 h-4 text-white" />}</div>
+                            <div className="overflow-hidden"><h4 className="font-black text-slate-800 truncate">{client.name}</h4><p className="text-xs text-slate-500 truncate">{client.address}</p></div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -349,37 +363,29 @@ const App: React.FC = () => {
 
             {step === AppStep.ROUTE && (
               <div className="max-w-4xl mx-auto pb-20">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-10 gap-4">
-                  <div>
-                    <h2 className="text-4xl font-black text-slate-900 tracking-tight">Rota Inteligente</h2>
-                    <p className="text-slate-500 font-medium">Ordem de visita otimizada pela IA Gemini.</p>
-                  </div>
-                  <div className="flex gap-2">
-                     <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2"><Sparkles className="w-4 h-4" /> Gemini Pro AI</span>
-                  </div>
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">Melhor Rota</h2>
+                  <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2"><Sparkles className="w-4 h-4" /> IA Gemini Pro</span>
                 </div>
                 <div className="space-y-6">
                   {optimizedRoute.map((stop, idx) => (
-                    <div key={stop.id} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl flex items-start gap-6 relative group transition-all hover:translate-x-1">
-                      <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xl shrink-0 shadow-lg shadow-blue-100">{idx + 1}</div>
+                    <div key={stop.id} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl flex items-start gap-6 transition-all hover:translate-x-1">
+                      <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xl shrink-0">{idx + 1}</div>
                       <div className="flex-1">
                         <h4 className="font-black text-xl text-slate-800">{stop.name}</h4>
-                        <p className="text-sm text-slate-500 mb-6">{stop.address}, {stop.neighborhood}, {stop.city}</p>
-                        <div className="flex flex-wrap gap-3">
-                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${stop.address}, ${stop.city}`)}`} target="_blank" rel="noreferrer" className="bg-slate-900 text-white text-[10px] font-black px-6 py-3 rounded-xl uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all shadow-md"><MapPin className="w-4 h-4" /> Iniciar GPS</a>
-                          <a href={`https://wa.me/${stop.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="bg-green-600 text-white text-[10px] font-black px-6 py-3 rounded-xl uppercase tracking-widest flex items-center gap-2 hover:bg-green-700 transition-all shadow-md"><MessageCircle className="w-4 h-4" /> WhatsApp</a>
+                        <p className="text-sm text-slate-500 mb-6">{stop.address}</p>
+                        <div className="flex gap-3">
+                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${stop.address}, ${stop.city}`)}`} target="_blank" rel="noreferrer" className="bg-slate-900 text-white text-[10px] font-black px-6 py-3 rounded-xl uppercase flex items-center gap-2"><MapPin className="w-4 h-4" /> Iniciar GPS</a>
+                          <a href={`https://wa.me/${stop.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="bg-green-600 text-white text-[10px] font-black px-6 py-3 rounded-xl uppercase flex items-center gap-2"><MessageCircle className="w-4 h-4" /> WhatsApp</a>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-12 flex gap-4">
-                  <button onClick={() => setStep(AppStep.PLANNER)} className="flex-1 py-5 border-2 border-dashed border-slate-300 rounded-3xl text-slate-400 font-black hover:border-blue-400 hover:text-blue-500 transition-all">Editar Visitas</button>
-                  <button onClick={() => window.print()} className="px-10 py-5 bg-white border border-slate-200 rounded-3xl font-black text-slate-600 hover:bg-slate-50 transition-all">Imprimir</button>
-                </div>
+                <button onClick={() => setStep(AppStep.PLANNER)} className="mt-12 w-full py-5 border-2 border-dashed border-slate-300 rounded-3xl text-slate-400 font-black hover:border-blue-400 transition-all">Editar Visitas</button>
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
 
@@ -391,9 +397,6 @@ const App: React.FC = () => {
           </div>
           <h3 className="text-2xl font-black mb-2 tracking-tight">Otimizando sua Rota</h3>
           <p className="text-blue-600 font-bold mb-6">{statusMessage}</p>
-          <div className="max-w-xs p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <p className="text-[11px] text-slate-400 font-medium italic">"{tips[currentTip]}"</p>
-          </div>
         </div>
       )}
     </div>
