@@ -6,12 +6,16 @@ import { Client } from "../types";
  * Extrai clientes de um PDF usando IA.
  */
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
-  // Inicializa o SDK usando a variável de ambiente exata API_KEY
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("API_KEY não configurada. Adicione a variável de ambiente no seu provedor de hospedagem.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [{
         parts: [
           {
@@ -21,7 +25,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             },
           },
           {
-            text: "Analise este documento PDF e extraia TODOS os clientes listados. Para cada cliente, identifique: Nome, Endereço completo, Bairro, Cidade, Estado, País e WhatsApp (com código do país e DDD). Se não encontrar coordenadas exatas, estime lat/lng baseadas na cidade/bairro. Retorne um array JSON estrito.",
+            text: "Extraia todos os clientes deste PDF. Retorne um array JSON com: name, address, neighborhood, city, state, whatsapp. Se não houver coordenadas, ignore lat/lng. Foque na precisão do endereço e nome.",
           },
         ],
       }],
@@ -37,10 +41,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
               neighborhood: { type: Type.STRING },
               city: { type: Type.STRING },
               state: { type: Type.STRING },
-              country: { type: Type.STRING },
               whatsapp: { type: Type.STRING },
-              lat: { type: Type.NUMBER },
-              lng: { type: Type.NUMBER },
             },
             required: ["name", "address", "city", "whatsapp"],
           },
@@ -56,11 +57,11 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
       ...item,
       id: `client-${Date.now()}-${index}`,
       neighborhood: item.neighborhood || "Centro",
-      city: item.city || "Não informada",
+      city: item.city || "Natal",
       state: item.state || "RN",
-      country: item.country || "Brasil",
-      lat: item.lat || -5.79448 + (Math.random() - 0.5) * 0.01,
-      lng: item.lng || -35.211 + (Math.random() - 0.5) * 0.01,
+      country: "Brasil",
+      lat: -5.79448 + (Math.random() - 0.5) * 0.05, // Coordenadas simuladas próximas a Natal se não houver GPS real
+      lng: -35.211 + (Math.random() - 0.5) * 0.05,
     }));
   } catch (error: any) {
     console.error("Erro no extractClientsFromPDF:", error);
@@ -76,22 +77,19 @@ export const optimizeRoute = async (
   endAddress: string,
   clients: Client[]
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey: apiKey! });
   
   const prompt = `
-    Como especialista em logística, ordene estes clientes para a rota mais eficiente.
-    Partida: ${startAddress || 'Início'}
-    Destino Final: ${endAddress || 'Retorno'}
-    
+    Ordene os IDs de clientes para a rota mais eficiente saindo de ${startAddress || 'Ponto A'} e terminando em ${endAddress || 'Ponto B'}.
     Clientes:
-    ${clients.map((c) => `- ID: ${c.id} | Nome: ${c.name} | Local: ${c.address}, ${c.neighborhood}`).join('\n')}
-
-    Retorne APENAS um array JSON com os IDs na ordem correta de visita.
+    ${clients.map((c) => `- ID: ${c.id} | Local: ${c.address}, ${c.neighborhood}`).join('\n')}
+    Retorne apenas o array JSON de IDs.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
@@ -105,6 +103,6 @@ export const optimizeRoute = async (
     return JSON.parse(response.text || "[]");
   } catch (error) {
     console.error("Erro no optimizeRoute:", error);
-    return clients.map(c => c.id); // Fallback para ordem original
+    return clients.map(c => c.id);
   }
 };
