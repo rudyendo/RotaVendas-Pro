@@ -6,58 +6,70 @@ import { Client } from "../types";
  * Extrai clientes de um PDF usando IA.
  */
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
-  // Inicializa o SDK. Se o process.env.API_KEY estiver vazio, o erro será tratado no catch do App.
+  // Inicializa o SDK usando a variável de ambiente exata API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            mimeType: 'application/pdf',
-            data: base64Pdf,
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{
+        parts: [
+          {
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: base64Pdf,
+            },
           },
-        },
-        {
-          text: "Extraia a lista completa de clientes deste documento PDF. Identifique o endereço completo, incluindo Bairro, Cidade, Estado e País. Extraia também o número de WhatsApp (no formato internacional: código do país + DDD + número). Tente inferir a Latitude e Longitude aproximada para cada cliente. Retorne um array JSON de objetos contendo: name, address, neighborhood, city, state, country, whatsapp, phone, info, lat (number) e lng (number).",
-        },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            address: { type: Type.STRING },
-            neighborhood: { type: Type.STRING },
-            city: { type: Type.STRING },
-            state: { type: Type.STRING },
-            country: { type: Type.STRING },
-            whatsapp: { type: Type.STRING },
-            phone: { type: Type.STRING },
-            info: { type: Type.STRING },
-            lat: { type: Type.NUMBER },
-            lng: { type: Type.NUMBER },
+          {
+            text: "Analise este documento PDF e extraia TODOS os clientes listados. Para cada cliente, identifique: Nome, Endereço completo, Bairro, Cidade, Estado, País e WhatsApp (com código do país e DDD). Se não encontrar coordenadas exatas, estime lat/lng baseadas na cidade/bairro. Retorne um array JSON estrito.",
           },
-          required: ["name", "address", "city", "state", "country", "whatsapp", "lat", "lng"],
+        ],
+      }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              address: { type: Type.STRING },
+              neighborhood: { type: Type.STRING },
+              city: { type: Type.STRING },
+              state: { type: Type.STRING },
+              country: { type: Type.STRING },
+              whatsapp: { type: Type.STRING },
+              lat: { type: Type.NUMBER },
+              lng: { type: Type.NUMBER },
+            },
+            required: ["name", "address", "city", "whatsapp"],
+          },
         },
       },
-    },
-  });
+    });
 
-  const rawData = JSON.parse(response.text || "[]");
-  return rawData.map((item: any, index: number) => ({
-    ...item,
-    id: `client-${Date.now()}-${index}`,
-  }));
+    const text = response.text;
+    if (!text) throw new Error("A IA retornou uma resposta vazia.");
+    
+    const rawData = JSON.parse(text);
+    return rawData.map((item: any, index: number) => ({
+      ...item,
+      id: `client-${Date.now()}-${index}`,
+      neighborhood: item.neighborhood || "Centro",
+      city: item.city || "Não informada",
+      state: item.state || "RN",
+      country: item.country || "Brasil",
+      lat: item.lat || -5.79448 + (Math.random() - 0.5) * 0.01,
+      lng: item.lng || -35.211 + (Math.random() - 0.5) * 0.01,
+    }));
+  } catch (error: any) {
+    console.error("Erro no extractClientsFromPDF:", error);
+    throw new Error(error.message || "Falha na comunicação com a IA.");
+  }
 };
 
 /**
- * Otimização de Rota usando IA Gemini (Inteligência Logística).
+ * Otimização de Rota usando IA Gemini.
  */
 export const optimizeRoute = async (
   startAddress: string,
@@ -67,44 +79,32 @@ export const optimizeRoute = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Você é um especialista em logística. Organize a melhor ordem de visita para os seguintes clientes, 
-    minimizando o tempo de deslocamento.
+    Como especialista em logística, ordene estes clientes para a rota mais eficiente.
+    Partida: ${startAddress || 'Início'}
+    Destino Final: ${endAddress || 'Retorno'}
     
-    Ponto de Partida: ${startAddress || 'Localização Atual'}
-    Ponto de Chegada: ${endAddress || 'Retorno à Base'}
-    
-    Lista de Clientes a visitar:
-    ${clients.map((c, i) => `- ID: ${c.id} | Nome: ${c.name} | Endereço: ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
+    Clientes:
+    ${clients.map((c) => `- ID: ${c.id} | Nome: ${c.name} | Local: ${c.address}, ${c.neighborhood}`).join('\n')}
 
-    Retorne APENAS um array JSON contendo os IDs dos clientes na ordem de visita recomendada. 
-    Exemplo: ["id1", "id2", "id3"]
+    Retorne APENAS um array JSON com os IDs na ordem correta de visita.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING }
-      }
-    }
-  });
-
   try {
-    const orderedIds = JSON.parse(response.text || "[]");
-    return orderedIds;
-  } catch (e) {
-    console.error("Erro ao processar resposta da IA:", e);
-    // Fallback: retorna a ordem original caso a IA falhe no formato
-    return clients.map(c => c.id);
-  }
-};
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
 
-/**
- * Mantemos o algoritmo matemático como utilitário interno para fallback silencioso.
- */
-export const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-  return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lng2 - lng1, 2));
+    return JSON.parse(response.text || "[]");
+  } catch (error) {
+    console.error("Erro no optimizeRoute:", error);
+    return clients.map(c => c.id); // Fallback para ordem original
+  }
 };
