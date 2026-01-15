@@ -3,25 +3,38 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Client } from "../types";
 
 /**
- * Obtém a instância da IA garantindo que a chave exista.
+ * Obtém a chave de API de forma segura para o ambiente do navegador.
+ */
+const getApiKey = (): string => {
+  try {
+    // Tenta acessar process.env de forma segura
+    const key = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : undefined;
+    return key || "";
+  } catch (e) {
+    return "";
+  }
+};
+
+/**
+ * Inicializa o cliente GenAI.
  */
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
-    throw new Error("Chave de API (API_KEY) não detectada ou inválida. Configure-a no ambiente do Vercel.");
+  const apiKey = getApiKey();
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("API_KEY não configurada. Por favor, adicione a variável de ambiente no painel de controle.");
   }
   return new GoogleGenAI({ apiKey });
 };
 
 /**
- * Extrai clientes de um PDF usando IA Gemini.
+ * Extrai clientes de um PDF usando IA Gemini 3 Pro.
  */
 export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]> => {
   const ai = getAiClient();
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [
           {
@@ -31,7 +44,7 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
             },
           },
           {
-            text: "Extraia todos os clientes deste documento PDF. Retorne um array JSON com os campos: name, address, neighborhood, city, state, whatsapp. Se o WhatsApp não tiver DDD, assuma 84. Retorne APENAS o JSON, sem markdown ou explicações.",
+            text: "Analise este documento PDF e extraia todos os registros de clientes. Para cada cliente, identifique: nome, endereço completo, bairro, cidade, estado e whatsapp. Retorne APENAS um array JSON puro. Se faltar o DDD no WhatsApp, use 84.",
           },
         ],
       },
@@ -50,7 +63,6 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
               whatsapp: { type: Type.STRING },
             },
             required: ["name", "address", "city", "whatsapp"],
-            propertyOrdering: ["name", "address", "neighborhood", "city", "state", "whatsapp"],
           },
         },
       },
@@ -67,30 +79,29 @@ export const extractClientsFromPDF = async (base64Pdf: string): Promise<Client[]
       city: item.city || "Natal",
       state: item.state || "RN",
       country: "Brasil",
-      lat: -5.79448 + (Math.random() - 0.5) * 0.05,
-      lng: -35.211 + (Math.random() - 0.5) * 0.05,
+      // Adiciona coordenadas simuladas baseadas em Natal/RN se a IA não fornecer
+      lat: -5.79448 + (Math.random() - 0.5) * 0.08,
+      lng: -35.211 + (Math.random() - 0.5) * 0.08,
     }));
   } catch (error: any) {
-    console.error("Erro no processamento do Gemini:", error);
-    throw new Error(error.message || "Falha ao processar o PDF com a IA.");
+    console.error("Erro detalhado do Gemini:", error);
+    throw new Error(error.message || "Falha na comunicação com o servidor de IA.");
   }
 };
 
 /**
- * Otimiza a rota baseada nos endereços dos clientes.
+ * Otimiza a rota usando inteligência geográfica.
  */
-export const optimizeRoute = async (
-  clients: Client[]
-): Promise<string[]> => {
+export const optimizeRoute = async (clients: Client[]): Promise<string[]> => {
   const ai = getAiClient();
   
   const prompt = `
-    Ordene os IDs dos clientes abaixo para criar a rota de entrega mais eficiente geograficamente.
+    Como um especialista em logística, organize estes ${clients.length} clientes na melhor ordem de visitação para economizar tempo e combustível.
     
-    Lista de Clientes:
-    ${clients.map((c) => `- ID: ${c.id} | Endereço: ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
+    Clientes:
+    ${clients.map((c) => `- ID: ${c.id} | Local: ${c.address}, ${c.neighborhood}, ${c.city}`).join('\n')}
     
-    Retorne um array JSON contendo APENAS os IDs na ordem sugerida.
+    Retorne um array JSON com os IDs na ordem correta.
   `;
 
   try {
@@ -107,9 +118,9 @@ export const optimizeRoute = async (
     });
 
     const result = JSON.parse(response.text || "[]");
-    return Array.isArray(result) ? result : clients.map(c => c.id);
+    return Array.isArray(result) && result.length > 0 ? result : clients.map(c => c.id);
   } catch (error) {
-    console.error("Erro na otimização de rota:", error);
+    console.warn("Falha na otimização via IA, usando ordem padrão:", error);
     return clients.map(c => c.id);
   }
 };
